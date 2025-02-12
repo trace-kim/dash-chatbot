@@ -1,5 +1,7 @@
 from utils.common_import import *
+from utils.text_processing import process_LLM_response
 from components.typography import Title3
+import uuid
 
 def _AvatarCreator(username):
     if username == "Assistant":
@@ -16,14 +18,33 @@ def _AvatarCreator(username):
         variant="light"
     )
 
-def _ChatCreator(name, chat_text, chat_id):
+def _ChatCreator(name, chat_id, chat_text):
+    id_loader = copy.deepcopy(chat_id)
+    print(id_loader)
+    id_loader["type"] += "-loader"
+    if name == "Assistant":
+        loader_visible = True
+    else:
+        loader_visible = False
     return dmc.Grid([
         dmc.GridCol(_AvatarCreator(name), span=1),
         dmc.GridCol([
             dmc.Stack([
                 Title3(name, "dark.4"),
+                dmc.Stack(
+                    children=[
+                        dmc.LoadingOverlay(
+                            visible=loader_visible,
+                            id=id_loader,
+                            loaderProps={"type": "dots", "color": "violet", "size": "lg"},
+                            style={"align-items":"start", "justify-content": "start"}
+                        ),
+                        dcc.Markdown(chat_text, id=chat_id),
+                    ],
+                    pos="relative",
+                    mih=50
+                )
                 # dmc.Text(chat_text, id=chat_id),
-                dcc.Markdown(chat_text, id=chat_id),
             ],
             pt=10,
             gap="sm")
@@ -33,54 +54,93 @@ def _ChatCreator(name, chat_text, chat_id):
     )
 
 def _Prompt():
-    return dmc.Stack([
-        dmc.Group([
-            dmc.Textarea(
-                placeholder="Ask something!",
-                autosize=True,
-                variant="unstyled",
-                minRows=1,
-                id="prompt-text"
-            )],
-            pl="0.5rem",
-            grow=True
-        ),
-        html.Div(
+    return dmc.Paper([
+        dmc.Stack([
             dmc.Group([
-                dmc.ActionIcon(
-                    DashIconify(icon="lucide:send"),
-                    variant="default",
-                    color="dark.4",
-                    radius="lg",
-                    id="prompt-submit-button"
+                EventListener(
+                    dmc.Textarea(
+                        placeholder="Ask something!",
+                        autosize=True,
+                        variant="unstyled",
+                        minRows=1,
+                        id="prompt-text"
+                    ),
+                    logging=False,
+                    id="keyboard-event"
+
                 ),
-            ],
-            justify="flex-end",
-            style={"cursor":"text"}
+                ],
+                pl="0.5rem",
+                grow=True
             ),
-            id="prompt-submit-area"
-        ),
+            dmc.Group([
+                dmc.Group([
+                    dcc.Upload(children=[
+                        dmc.ActionIcon(
+                            DashIconify(icon="lucide:upload"),
+                            variant="default",
+                            color="dark.4",
+                            # radius="lg",
+                            id="file-upload-button"
+                        )
+                    ])
+                ],
+                justify="flex-start"),
+                dmc.Group([
+                    dmc.Select(
+                        # label="Select Model",
+                        id="chat-model-select",
+                        value="exaone3.5",
+                        data=[
+                            {"value": "llama3.2", "label": "llama3.2"},
+                            {"value": "mistral-nemo", "label": "mistral-nemo"},
+                            {"value": "exaone3.5", "label": "exaone3.5"},
+                            {"value": "aya", "label": "aya"},
+                            {"value": "gemma2", "label": "gemma2"},
+                            {"value": "phi4", "label": "phi4"},
+                            {"value": "deepseek-r1", "label": "deepseek-r1"}
+                        ],
+                        radius="xl",
+                    ),
+                    dmc.ActionIcon(
+                        DashIconify(icon="lucide:send"),
+                        variant="default",
+                        color="dark.4",
+                        radius="lg",
+                        id="prompt-submit-button"
+                    ),
+                ],
+                justify="flex-end",
+                style={"cursor":"text"}
+                )],
+                justify="space-between",
+                id="prompt-submit-area"
+            ),
+        ],
+        gap=0,
+        w="100%"
+        )
     ],
     bg="violet.0",
     style={"border-radius":"1rem"},
     p="0.5rem",
-    gap=0
-    
+    shadow="sm",
     )
 
 def UserChat(username, chat_text, chat_id):
-    return _ChatCreator(username, chat_text, chat_id)
+    return _ChatCreator(username, chat_text=chat_text, chat_id=chat_id)
 
 def AssistantChat(chat_text, chat_id):
-    return _ChatCreator("Assistant", chat_text, chat_id)
+    return _ChatCreator("Assistant", chat_text=chat_text, chat_id=chat_id)
 
 def ChatScreen():
     return dmc.Center(
         dmc.Stack([
-            DashSocketIO(id='chat-socket', eventNames=["stream"]),
+            # DashSocketIO(id='chat-socket', eventNames=["stream"]),
             dcc.Store(data="Do Hwi", id="username"),
             dcc.Store(data="", id="current-stream-id"),
-            WebSocket(url="ws://127.0.0.1:5000/ws", id="ws"),
+            WebSocket(url=CHAT_WEBSOCKET_URL + "/" + str(uuid.uuid4()), id="ws"),
+            # WebSocket(url=CHAT_WEBSOCKET_URL, id="ws"),
             dmc.Box(
                 h="100%",
                 w=800,
@@ -90,7 +150,7 @@ def ChatScreen():
                             # AssistantChat("Hello! How can I help you?"),
                             # UserChat("Do Hwi", "Write me a Python code that makes a cool chatbot."),
                             dmc.Center(
-                                Title3("What can I do for you? :)", color="dark.4")
+                                Title3("How can I help you?", color="dark.4")
                             ),
                             # dmc.Text("", id="results")
                         ]),
@@ -100,8 +160,8 @@ def ChatScreen():
                     ),        
             ),
             _Prompt()
-        ]),
-        pt="10rem"
+        ], w={"base": "100%", "md": 400, "lg": 800}),
+        pt="10rem",
     )
 
 @callback(
@@ -134,15 +194,24 @@ def return_pressed_on_prompt_text(n_submit, button_disabled, n_clicks):
     Input("prompt-submit-button", "n_clicks"),
     State("prompt-text", "value"),
     State("username", "data"),
+    State({"type": CHAT_ASSISTANT_ID_PREFIX, "index": ALL}, "id"),
+    State("keyboard-event", "event"),
+    State("chat-model-select", "value"),
     prevent_initial_call=True,
 )
-def prompt_submit_pressed(n_clicks, prompt_text, username):
-    user_text = prompt_text.replace("\n", "  \n")
+def prompt_submit_pressed(n_clicks, prompt_text, username, id_list, keyboard_event, model):
     patch = Patch()
-    patch["props"]["children"].append(UserChat(username, user_text, chat_id={"type": CHAT_USER_ID_PREFIX, "index": n_clicks}))
-    patch["props"]["children"].append(AssistantChat("", chat_id={"type": CHAT_ASSISTANT_ID_PREFIX, "index": n_clicks}))
+    # If shift key is pressed, just return line break without sending to LLM
+    if keyboard_event["shiftKey"]:
+        return patch, prompt_text, ""
+    # If enter key is pressed with prompt text, render User/Assistant chat UI
+    if (not n_clicks is None) and (not {"type": CHAT_ASSISTANT_ID_PREFIX, "index": n_clicks} in id_list):
+        user_text = prompt_text.replace("\n", "  \n")
+        patch["props"]["children"].append(UserChat(username, user_text, chat_id={"type": CHAT_USER_ID_PREFIX, "index": n_clicks}))
+        patch["props"]["children"].append(AssistantChat("", chat_id={"type": CHAT_ASSISTANT_ID_PREFIX, "index": n_clicks}))
     
-    return patch, "", prompt_text
+    send_str = json.dumps({"query": prompt_text, "model": model})
+    return patch, "", send_str
 
 
 # Callback for focusing prompt textarea when clicked
@@ -165,20 +234,27 @@ clientside_callback(
 )
 
 
-
 @callback(
     Output({"type": CHAT_ASSISTANT_ID_PREFIX, "index": ALL}, "children"),
+    Output({"type": CHAT_ASSISTANT_ID_PREFIX + "-loader", "index": ALL}, "visible"),
     Input("ws", "message"),
     State({"type": CHAT_ASSISTANT_ID_PREFIX, "index": ALL}, "children"),
+    State({"type": CHAT_ASSISTANT_ID_PREFIX + "-loader", "index": ALL}, "visible"),
     prevent_initial_call=True,
 )
-def update_assistant_response(from_ws, curr_text_list):
+def update_assistant_response(from_ws, curr_text_list, loader_visibility):
+    # Make loader invisible on receiving text response
+    loader_visibility[-1] = False
+
     msg = from_ws["data"]
+    msg = process_LLM_response(msg)
+    print(msg)
     # Find the last created chat component (with the highest index)
     if len(curr_text_list) > 0:
         # Update the last AssistantChat component
-        curr_text_list[-1] = curr_text_list[-1] + " " + msg
-    return curr_text_list
+        # curr_text_list[-1] = curr_text_list[-1] + " " + msg
+        curr_text_list[-1] = curr_text_list[-1] + msg
+    return curr_text_list, loader_visibility
 
 # clientside_callback(
 #     """

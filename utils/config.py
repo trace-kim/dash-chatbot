@@ -1,2 +1,3 @@
 CHAT_USER_ID_PREFIX = "chat-user"
 CHAT_ASSISTANT_ID_PREFIX = "chat-assistant"
+CHAT_WEBSOCKET_URL = "ws://127.0.0.1:5000/ws"

@@ -73,4 +73,5 @@ def MainShell():
         ])
     ],
     header={"height": 80},
-    id="appshell",)
+    id="appshell",
+    w="100%")
