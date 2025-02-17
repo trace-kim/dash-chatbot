@@ -13,7 +13,7 @@ app.layout = dmc.MantineProvider([
     MainShell()
     ],
     theme= {
-        "fontFamily": 'Segoe UI',
+        "fontFamily": 'Roboto',
         "headings": { "fontFamily": 'Roboto' },
     }
 )

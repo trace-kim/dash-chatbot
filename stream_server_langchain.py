@@ -84,6 +84,9 @@ async def stream_llm_response(websocket: WebSocket, recv: str, rate_limit=0.15):
         recv_dict = json.loads(recv)
         query = recv_dict["query"]
         model = recv_dict["model"]
+        context = recv_dict["context"]
+
+        query = query + "  \nContext: " + "  \n\n".join(context)
 
         print(f"Prompt: {query}")
         if not query.strip():
@@ -93,32 +96,37 @@ async def stream_llm_response(websocket: WebSocket, recv: str, rate_limit=0.15):
         input_messages = [HumanMessage(query)]
 
         # Async stream from the LLM model
-        send_message = ""
         LLMBot = BOT_DICT[model]
 
-        ts = time.perf_counter()
-        async for chunk, metadata in LLMBot.app.astream(
-            {"messages": input_messages},
-            config,
-            stream_mode="messages",
-        ):
-            if isinstance(chunk, AIMessage):  # Filter to just model responses
-                send_message += chunk.content
-                if time.perf_counter() - ts > rate_limit:
-                    print("Entered rate limit break")
-                    print(send_message)
-                    await websocket.send_text(send_message)
-                    print("Message sent")
-                    send_message = ""
-                    ts = time.perf_counter()
+        await LLMBot.astream(
+            message=input_messages,
+            config=config,
+            websocket=websocket,
+            rate_limit=rate_limit
+        )
+        # ts = time.perf_counter()
+        # async for chunk, metadata in LLMBot.app.astream(
+        #     {"messages": input_messages},
+        #     config,
+        #     stream_mode="messages",
+        # ):
+        #     if isinstance(chunk, AIMessage):  # Filter to just model responses
+        #         send_message += chunk.content
+        #         if time.perf_counter() - ts > rate_limit:
+        #             print("Entered rate limit break")
+        #             print(send_message)
+        #             await websocket.send_text(send_message)
+        #             print("Message sent")
+        #             send_message = ""
+        #             ts = time.perf_counter()
 
-        # Ensure any remaining message is sent
-        if send_message:
-            time_left = rate_limit - (time.perf_counter() - ts)
-            await asyncio.sleep(time_left)
-            print(send_message)
-            await websocket.send_text(send_message)
-            print("Message sent")
+        # # Ensure any remaining message is sent
+        # if send_message:
+        #     time_left = rate_limit - (time.perf_counter() - ts)
+        #     await asyncio.sleep(time_left)
+        #     print(send_message)
+        #     await websocket.send_text(send_message)
+        #     print("Message sent")
 
     except Exception as e:
         print(f"Error streaming LLM response: {e}")

@@ -1,3 +1,5 @@
 CHAT_USER_ID_PREFIX = "chat-user"
 CHAT_ASSISTANT_ID_PREFIX = "chat-assistant"
+CHAT_ATTACHED_FILE_BADGE_ID_PREFIX = "chat-attached-file-badge"
+CHAT_ATTACHED_FILE_DELETE_ID_PREFIX = "chat-attached-file-delete"
 CHAT_WEBSOCKET_URL = "ws://127.0.0.1:5000/ws"

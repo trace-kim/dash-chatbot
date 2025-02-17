@@ -1,7 +1,7 @@
 from utils.common_import import *
 from components.header import Header
 from components.card import Card1
-from components.chat import ChatScreen
+from components.chat_page import ChatScreen
 
 
 
@@ -43,31 +43,6 @@ def MainShell():
             ),
         dmc.AppShellMain([
             
-            dmc.Alert(
-            "Hi from Dash Mantine Components. You can create some great looking dashboards using me!",
-            title="Welcome!",
-            color="violet",
-            ),
-
-            dmc.Carousel(
-                [dmc.CarouselSlide(Card1(d["image"], d["title"], d["category"])) for d in data],
-                id="carousel-cards",
-                align="center",
-                slideSize="50%",
-                slideGap="md",
-                loop=True,
-                nextControlIcon=DashIconify(icon="grommet-icons:form-next", width=30),
-                previousControlIcon=DashIconify(icon="grommet-icons:form-previous", width=30),
-                autoplay={"delay":2000},
-                styles={"control":
-                        {
-                            "backgroundColor":"transparent",
-                            "color":"white",
-                            "borderWidth":"0px",
-                            "opacity":"0.7"
-                        }}
-
-            ),
             ChatScreen(),
             dmc.Container(h=500),
         ])
