@@ -10,11 +10,12 @@ app = Dash(external_stylesheets=dmc.styles.ALL)
 socketio = SocketIO(app.server)
 
 app.layout = dmc.MantineProvider([
-    MainShell()
+    MainShell(),
     ],
     theme= {
-        "fontFamily": 'Roboto',
-        "headings": { "fontFamily": 'Roboto' },
+        "fontFamily": 'Inter, ',
+        "headings": { "fontFamily": 'Inter' },
+        "fontFamilyMonospace": 'Monaco, Consolas, Menlo, monospace',
     }
 )
 

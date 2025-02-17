@@ -23,34 +23,55 @@ def _AvatarCreator(username):
 def _ChatCreator(name, chat_id, chat_text):
     id_loader = copy.deepcopy(chat_id)
     id_loader["type"] += "-loader"
-    id_time_taken = copy.deepcopy(chat_id)
-    id_time_taken["type"] += "-time"
+
+    # Add loader and response time display for assistant
     if name == "Assistant":
         loader_visible = True
         id_time_taken = copy.deepcopy(chat_id)
         id_time_taken["type"] += "-time"
+        StackChildren = [
+            dmc.Stack([
+                dmc.LoadingOverlay(
+                    visible=loader_visible,
+                    id=id_loader,
+                    loaderProps={"type": "dots", "color": "violet", "size": "lg"},
+                    style={"alignItems":"start", "justifyContent": "start"},
+                    styles={"overlay": {"backgroundColor": "transparent"}}
+                ),
+                dcc.Markdown(
+                    chat_text,
+                    id=chat_id,
+                    style={
+                        # 'fontFamily': 'serif',
+                        # 'color': 'blue',
+                    }
+                ),
+            ]),
+            dmc.Space(h=5),
+            dmc.Text("", size="sm", c="gray", id=id_time_taken)
+        ]
+    # Skip loader and response time display for user chat
     else:
         loader_visible = False
+        StackChildren = [
+            dmc.Stack([
+                dmc.LoadingOverlay(
+                    visible=loader_visible,
+                    id=id_loader,
+                    loaderProps={"type": "dots", "color": "violet", "size": "lg"},
+                    style={"alignItems":"start", "justifyContent": "start"},
+                    styles={"overlay": {"backgroundColor": "transparent"}}
+                ),
+                dcc.Markdown(chat_text, id=chat_id),
+            ])
+        ]
     return dmc.Grid([
         dmc.GridCol(_AvatarCreator(name), span=1),
         dmc.GridCol([
             dmc.Stack([
                 Title3(name, "dark.4"),
                 dmc.Stack(
-                    children=[
-                        dmc.Stack([
-                            dmc.LoadingOverlay(
-                                visible=loader_visible,
-                                id=id_loader,
-                                loaderProps={"type": "dots", "color": "violet", "size": "lg"},
-                                style={"align-items":"start", "justify-content": "start"},
-                                styles={"overlay": {"background-color": "transparent"}}
-                            ),
-                            dcc.Markdown(chat_text, id=chat_id),
-                        ]),
-                        dmc.Space(h=5),
-                        dmc.Text("", size="sm", c="gray", id=id_time_taken),
-                    ],
+                    children=StackChildren,
                     pos="relative",
                     mih=50
                 )
@@ -102,6 +123,7 @@ def _PromptButtons():
                     {"value": "deepseek-r1", "label": "deepseek-r1"}
                 ],
                 radius="xl",
+                comboboxProps={"zIndex": 1000}
             ),
             dmc.ActionIcon(
                 DashIconify(icon="lucide:send"),
@@ -115,41 +137,47 @@ def _PromptButtons():
         justify="flex-end",
         style={"cursor":"text"}
         )],
-        justify="space-between",
-        id="prompt-submit-area"
+        justify="space-between"
     )
 
 def _Prompt():
     return dmc.Paper([
-        dmc.Stack([
-            dmc.Group([
-                EventListener(
-                    dmc.Textarea(
-                        placeholder="Ask something!",
-                        autosize=True,
-                        variant="unstyled",
-                        minRows=1,
-                        size="lg",
-                        id="prompt-text"
-                    ),
-                    logging=False,
-                    id="keyboard-event"
+        EventListener(
+            dmc.Stack([
+                dmc.Group([
+                    EventListener(
+                        dmc.Textarea(
+                            "",
+                            placeholder="Ask something!",
+                            autosize=True,
+                            variant="unstyled",
+                            minRows=1,
+                            maxRows=10,
+                            size="lg",
+                            id="prompt-text"
+                        ),
+                        logging=False,
+                        id="keyboard-event"
 
+                    ),
+                    ],
+                    pl="0.5rem",
+                    grow=True
                 ),
-                ],
-                pl="0.5rem",
-                grow=True
+                dmc.Space(h=30),
+                _PromptButtons(),
+                _PromptUploadedFiles(),
+            ],
+            gap=5,
+            w="100%"
             ),
-            dmc.Space(h=30),
-            _PromptButtons(),
-            _PromptUploadedFiles(),
-        ],
-        gap=5,
-        w="100%"
+            events=[{"event": "click", "props": ["srcElement.className", "srcElement.innerText"]}],
+            logging=False,
+            id="prompt-submit-area"
         )
     ],
     bg="violet.0",
-    style={"border-radius":"1rem"},
+    style={"borderRadius":"1rem", "cursor":"text"},
     p="0.5rem",
     shadow="sm",
     )
@@ -171,10 +199,11 @@ def _PromptSection():
             dmc.Space(h="sm")
 
         ],
-        style={"background-color": "white"}
+        style={"backgroundColor": "white"}
         ),
         position={ "bottom": 0, "right": "calc(50% - 400px)" },
-        w=800,
+        w={"base": "100%", "md": 800},
+        withinPortal=False,
         zIndex=500
     )
 
@@ -200,12 +229,16 @@ def ChatScreen():
                 children=dmc.Paper(
                     dmc.Stack(
                         children=[
-                            # AssistantChat("Hello! How can I help you?"),
-                            # UserChat("Do Hwi", "Write me a Python code that makes a cool chatbot."),
                             dmc.Center(
-                                Title1("How can I help you?", color="dark.4")
+                                TitleChat(
+                                    "무엇을 도와드릴까요?",
+                                    color="dark.4",
+                                    style={
+                                        "fontFamily": "AppleSDGothic",
+                                    },
+                                    id="chat-title"
+                                )
                             ),
-                            # dmc.Text("", id="results")
                         ]),
                     withBorder=False,
                     w="98%",
@@ -213,7 +246,9 @@ def ChatScreen():
                     ),        
             ),
             _PromptSection(),
-        ], w={"base": "100%", "md": 400, "lg": 800}),
+        ],
+        # w={"base": "100%", "md": 400, "lg": 800}
+        ),
         pt="10rem",
     )
 
@@ -284,7 +319,7 @@ clientside_callback(
         }
     """,
     Output("prompt-text", "disabled"),
-    Input("prompt-submit-area", "n_clicks"),
+    Input("prompt-submit-area", "n_events"),
     prevent_initial_call=True,
 )
 
@@ -370,3 +405,29 @@ def file_delete_button_clicked(n_clicks, badge_list):
     
     badge_list = [badge for badge in badge_list if del_badge_id != badge["props"]["id"]]
     return badge_list
+
+@callback(
+    Output("prompt-text", "value"),
+    Input("coding-button", "n_clicks"),
+    Input("translate-button", "n_clicks"),
+    Input("summarize-button", "n_clicks"),
+    Input("file-analysis-button", "n_clicks"),
+    State("prompt-text", "value"),
+    prevent_initial_call=True,
+)
+def prompt_template_button_clicked(n1, n2, n3, n4, prompt_text):
+    # Remove already existing prefix
+    for _, prefix in CHAT_PROMPT_TEMPLATE_NAMES.items():
+        prompt_text = prompt_text.removeprefix(prefix)
+    
+    # Add new prefix according to button clicked
+    if ctx.triggered_id == "coding-button":
+        prompt_text = CHAT_PROMPT_TEMPLATE_NAMES["coding"] + prompt_text
+    elif ctx.triggered_id == "translate-button":
+        prompt_text = CHAT_PROMPT_TEMPLATE_NAMES["translate"] + prompt_text
+    elif ctx.triggered_id == "summarize-button":
+        prompt_text = CHAT_PROMPT_TEMPLATE_NAMES["summarize"] + prompt_text
+    elif ctx.triggered_id == "file-analysis-button":
+        prompt_text = CHAT_PROMPT_TEMPLATE_NAMES["file"] + prompt_text
+        
+    return prompt_text

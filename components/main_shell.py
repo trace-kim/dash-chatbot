@@ -44,9 +44,15 @@ def MainShell():
         dmc.AppShellMain([
             
             ChatScreen(),
-            dmc.Container(h=500),
-        ])
+            # dmc.Container(h=500),
+        ]),
+        dmc.AppShellNavbar("Navbar"),
     ],
-    header={"height": 80},
+    header={"height": HEADER_HEIGHT},
     id="appshell",
+    navbar={
+        "width": NAVBAR_WIDTH,
+        "breakpoint": "md",
+        "collapsed": {"mobile": True},
+    },
     w="100%")
