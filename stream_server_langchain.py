@@ -14,6 +14,7 @@ BOT_DICT = {
     "gemma2": LangChainBot(model="gemma2"),
     "aya": LangChainBot(model="aya"),
     "phi4": LangChainBot(model="phi4"),
+    "qwen2.5": LangChainBot(model="qwen2.5-coder:32b")
 }
 # ExaOneBot = LangChainBot(model="exaone3.5")
 # DeepSeekBot = LangChainBot(model="deepseek-r1:8b")

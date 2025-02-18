@@ -45,7 +45,9 @@ def MainShell():
             
             ChatScreen(),
             # dmc.Container(h=500),
-        ]),
+        ],
+        h="100vh",
+        w="100%"),
         dmc.AppShellNavbar("Navbar"),
     ],
     header={"height": HEADER_HEIGHT},

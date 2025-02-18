@@ -24,6 +24,10 @@ def _ChatCreator(name, chat_id, chat_text):
     id_loader = copy.deepcopy(chat_id)
     id_loader["type"] += "-loader"
 
+    markdown_style = {
+        'fontSize': '1.125rem',
+    }
+
     # Add loader and response time display for assistant
     if name == "Assistant":
         loader_visible = True
@@ -41,10 +45,7 @@ def _ChatCreator(name, chat_id, chat_text):
                 dcc.Markdown(
                     chat_text,
                     id=chat_id,
-                    style={
-                        # 'fontFamily': 'serif',
-                        # 'color': 'blue',
-                    }
+                    style=markdown_style
                 ),
             ]),
             dmc.Space(h=5),
@@ -62,7 +63,11 @@ def _ChatCreator(name, chat_id, chat_text):
                     style={"alignItems":"start", "justifyContent": "start"},
                     styles={"overlay": {"backgroundColor": "transparent"}}
                 ),
-                dcc.Markdown(chat_text, id=chat_id),
+                dcc.Markdown(
+                    chat_text,
+                    id=chat_id,
+                    style=markdown_style
+                ),
             ])
         ]
     return dmc.Grid([
@@ -120,6 +125,7 @@ def _PromptButtons():
                     {"value": "aya", "label": "aya"},
                     {"value": "gemma2", "label": "gemma2"},
                     {"value": "phi4", "label": "phi4"},
+                    {"value": "qwen2.5", "label": "qwen2.5"},
                     {"value": "deepseek-r1", "label": "deepseek-r1"}
                 ],
                 radius="xl",
@@ -169,7 +175,7 @@ def _Prompt():
                 _PromptUploadedFiles(),
             ],
             gap=5,
-            w="100%"
+            # w="100%"
             ),
             events=[{"event": "click", "props": ["srcElement.className", "srcElement.innerText"]}],
             logging=False,
@@ -180,9 +186,27 @@ def _Prompt():
     style={"borderRadius":"1rem", "cursor":"text"},
     p="0.5rem",
     shadow="sm",
+    w="100%"
     )
 
 def _PromptSection():
+    return dmc.Stack([
+        _Prompt(),
+
+        dmc.Group([
+            SmallDefaultButton("코드 및 디버깅", id="coding-button"),
+            SmallDefaultButton("텍스트 번역", id="translate-button"),
+            SmallDefaultButton("텍스트 요약", id="summarize-button"),
+            SmallDefaultButton("파일 분석", id="file-analysis-button"),
+        ],
+        justify="center"
+        ),
+
+        dmc.Space(h="sm")
+
+    ],
+    style={"backgroundColor": "white"}
+    )
     return dmc.Affix(
         dmc.Stack([
             _Prompt(),
@@ -214,7 +238,7 @@ def AssistantChat(chat_text, chat_id):
     return _ChatCreator("Assistant", chat_text=chat_text, chat_id=chat_id)
 
 def ChatScreen():
-    return dmc.Center(
+    return dmc.Stack(
         dmc.Stack([
             # DashSocketIO(id='chat-socket', eventNames=["stream"]),
             dcc.Store(data="Do Hwi", id="username"),
@@ -223,12 +247,14 @@ def ChatScreen():
             dcc.Interval(id="response-running-interval", disabled=True, interval=100),
             WebSocket(url=CHAT_WEBSOCKET_URL + "/" + str(uuid.uuid4()), id="ws"),
             # WebSocket(url=CHAT_WEBSOCKET_URL, id="ws"),
-            dmc.Box(
+            dmc.ScrollArea(
                 h="100%",
-                w=800,
+                maw=CHAT_MAX_WIDTH,
+                w="100%",
                 children=dmc.Paper(
                     dmc.Stack(
                         children=[
+                            dmc.Space(h=300),
                             dmc.Center(
                                 TitleChat(
                                     "무엇을 도와드릴까요?",
@@ -238,18 +264,27 @@ def ChatScreen():
                                     },
                                     id="chat-title"
                                 )
-                            ),
-                        ]),
+                            )
+                        ],
+                        align="stretch",
+                        justify="flex-end",
+                        id="chat-stack",
+                        w="100%"),
                     withBorder=False,
                     w="98%",
-                    id="chat-stack"
                     ),        
             ),
             _PromptSection(),
         ],
-        # w={"base": "100%", "md": 400, "lg": 800}
+        justify="flex-end",
+        h="100%",
+        maw=CHAT_MAX_WIDTH,
+        w="100%",
         ),
-        pt="10rem",
+        align="center",
+        # pt="20vh",
+        h="90vh",
+        w="100%",
     )
 
 @callback(
@@ -287,9 +322,10 @@ def return_pressed_on_prompt_text(n_submit, button_disabled, n_clicks):
     State("keyboard-event", "event"),
     State("chat-model-select", "value"),
     State('uploaded-file', 'data'),
+    State("chat-stack", "children"),
     prevent_initial_call=True,
 )
-def prompt_submit_pressed(n_clicks, prompt_text, username, id_list, keyboard_event, model, uploaded_data):
+def prompt_submit_pressed(n_clicks, prompt_text, username, id_list, keyboard_event, model, uploaded_data, test):
     patch = Patch()
     # If shift key is pressed, just return line break without sending to LLM
     if keyboard_event["shiftKey"]:
@@ -297,8 +333,10 @@ def prompt_submit_pressed(n_clicks, prompt_text, username, id_list, keyboard_eve
     # If enter key is pressed with prompt text, render User/Assistant chat UI
     if (not n_clicks is None) and (not {"type": CHAT_ASSISTANT_ID_PREFIX, "index": n_clicks} in id_list):
         user_text = prompt_text.replace("\n", "  \n")
-        patch["props"]["children"].append(UserChat(username, user_text, chat_id={"type": CHAT_USER_ID_PREFIX, "index": n_clicks}))
-        patch["props"]["children"].append(AssistantChat("", chat_id={"type": CHAT_ASSISTANT_ID_PREFIX, "index": n_clicks}))
+        # patch["props"]["children"].append(UserChat(username, user_text, chat_id={"type": CHAT_USER_ID_PREFIX, "index": n_clicks}))
+        # patch["props"]["children"].append(AssistantChat("", chat_id={"type": CHAT_ASSISTANT_ID_PREFIX, "index": n_clicks}))
+        patch.append(UserChat(username, user_text, chat_id={"type": CHAT_USER_ID_PREFIX, "index": n_clicks}))
+        patch.append(AssistantChat("", chat_id={"type": CHAT_ASSISTANT_ID_PREFIX, "index": n_clicks}))
     
     send_str = json.dumps({"query": prompt_text, "model": model, "context": uploaded_data})
     return patch, "", send_str
