@@ -2,6 +2,7 @@ from utils.common_import import *
 from components.header import Header
 from components.card import Card1
 from components.chat_page import ChatScreen
+from components.navbar import ChatNavbar
 
 
 
@@ -39,16 +40,17 @@ def MainShell():
     return dmc.AppShell([
         dmc.AppShellHeader(
             Header(),
-            pl="1.5625rem"
+            px="1.5625rem"
             ),
         dmc.AppShellMain([
+            dcc.Location(id='url', refresh=False),
             
             ChatScreen(),
             # dmc.Container(h=500),
         ],
         h="100vh",
         w="100%"),
-        dmc.AppShellNavbar("Navbar"),
+        dmc.AppShellNavbar(ChatNavbar([])),
     ],
     header={"height": HEADER_HEIGHT},
     id="appshell",

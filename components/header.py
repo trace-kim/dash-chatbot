@@ -7,12 +7,27 @@ def Brand():
             Title1("TOESA", color="dark.4"),
             href="#",
             underline="never"
-            )
+        ),
+        justify="flex-start",
         )
 
+def BurgerButton():
+    return dmc.Group([
+        dmc.ActionIcon(
+            DashIconify(icon="lucide:menu", width=50),
+            variant="transparent",
+            color="dark.4",
+            id="burger-button",
+            hiddenFrom="md"
+        )
+    ])
+
 def Header():
-    return dmc.Stack([
-        Brand()
+    return dmc.Group([
+        Brand(),
+        BurgerButton(),
     ],
-    justify="center",
-    h="100%")
+    justify="space-between",
+    align="center",
+    h="100%"
+    )

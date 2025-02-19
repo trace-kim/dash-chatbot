@@ -1,3 +1,4 @@
+import random
 from utils.common_import import *
 from utils.text_processing import chat_response_parsing
 from components.typography import *
@@ -70,10 +71,27 @@ def _ChatCreator(name, chat_id, chat_text):
                 ),
             ])
         ]
-    return dmc.Grid([
-        dmc.GridCol(_AvatarCreator(name), span=1),
-        dmc.GridCol([
-            dmc.Stack([
+    # return dmc.Grid([
+    #     dmc.GridCol(_AvatarCreator(name), span={"base": 2, "xs": 1}),
+    #     dmc.GridCol([
+    #         dmc.Stack([
+    #             Title3(name, "dark.4"),
+    #             dmc.Stack(
+    #                 children=StackChildren,
+    #                 pos="relative",
+    #                 mih=50
+    #             )
+    #             # dmc.Text(chat_text, id=chat_id),
+    #         ],
+    #         pt=10,
+    #         gap="sm")
+    #     ],
+    #     span={"base": 10, "xs": 11})
+    # ],
+    # )
+    return dmc.Group([
+        _AvatarCreator(name),
+        dmc.Stack([
                 Title3(name, "dark.4"),
                 dmc.Stack(
                     children=StackChildren,
@@ -84,10 +102,9 @@ def _ChatCreator(name, chat_id, chat_text):
             ],
             pt=10,
             gap="sm")
-        ],
-        span=11)
     ],
-    )
+    align="flex-start",
+    wrap="nowrap")
 
 def _PromptUploadedFiles():
     return dmc.Group(
@@ -207,29 +224,6 @@ def _PromptSection():
     ],
     style={"backgroundColor": "white"}
     )
-    return dmc.Affix(
-        dmc.Stack([
-            _Prompt(),
-
-            dmc.Group([
-                SmallDefaultButton("코드 및 디버깅", id="coding-button"),
-                SmallDefaultButton("텍스트 번역", id="translate-button"),
-                SmallDefaultButton("텍스트 요약", id="summarize-button"),
-                SmallDefaultButton("파일 분석", id="file-analysis-button"),
-            ],
-            justify="center"
-            ),
-
-            dmc.Space(h="sm")
-
-        ],
-        style={"backgroundColor": "white"}
-        ),
-        position={ "bottom": 0, "right": "calc(50% - 400px)" },
-        w={"base": "100%", "md": 800},
-        withinPortal=False,
-        zIndex=500
-    )
 
 def UserChat(username, chat_text, chat_id):
     return _ChatCreator(username, chat_text=chat_text, chat_id=chat_id)
@@ -242,6 +236,7 @@ def ChatScreen():
         dmc.Stack([
             # DashSocketIO(id='chat-socket', eventNames=["stream"]),
             dcc.Store(data="Do Hwi", id="username"),
+            dcc.Store(data=str(uuid.uuid4()), id="user-id"),
             dcc.Store(data="", id="current-stream-id"),
             dcc.Store(data=[], id="uploaded-file"),
             dcc.Interval(id="response-running-interval", disabled=True, interval=100),
@@ -249,7 +244,7 @@ def ChatScreen():
             # WebSocket(url=CHAT_WEBSOCKET_URL, id="ws"),
             dmc.ScrollArea(
                 h="100%",
-                maw=CHAT_MAX_WIDTH,
+                maw={"base": "100vw","md": CHAT_MAX_WIDTH},
                 w="100%",
                 children=dmc.Paper(
                     dmc.Stack(
@@ -288,6 +283,17 @@ def ChatScreen():
     )
 
 @callback(
+    Output("appshell", "navbar"),
+    Input("burger-button", "n_clicks"),
+    State("appshell", "navbar"),
+    prevent_initial_call=True,
+)
+def toggle_navbar(_, navbar):
+    curr_state = navbar["collapsed"]["mobile"]
+    navbar["collapsed"] = {"mobile": not curr_state}
+    return navbar
+
+@callback(
     Output("prompt-submit-button", "disabled"),
     Input("prompt-text", "value"),
 )
@@ -322,10 +328,10 @@ def return_pressed_on_prompt_text(n_submit, button_disabled, n_clicks):
     State("keyboard-event", "event"),
     State("chat-model-select", "value"),
     State('uploaded-file', 'data'),
-    State("chat-stack", "children"),
+    State("user-id", "data"),
     prevent_initial_call=True,
 )
-def prompt_submit_pressed(n_clicks, prompt_text, username, id_list, keyboard_event, model, uploaded_data, test):
+def prompt_submit_pressed(n_clicks, prompt_text, username, id_list, keyboard_event, model, uploaded_data, user_id):
     patch = Patch()
     # If shift key is pressed, just return line break without sending to LLM
     if keyboard_event["shiftKey"]:
@@ -338,7 +344,7 @@ def prompt_submit_pressed(n_clicks, prompt_text, username, id_list, keyboard_eve
         patch.append(UserChat(username, user_text, chat_id={"type": CHAT_USER_ID_PREFIX, "index": n_clicks}))
         patch.append(AssistantChat("", chat_id={"type": CHAT_ASSISTANT_ID_PREFIX, "index": n_clicks}))
     
-    send_str = json.dumps({"query": prompt_text, "model": model, "context": uploaded_data})
+    send_str = json.dumps({"user_id": user_id,"query": prompt_text, "model": model, "context": uploaded_data})
     return patch, "", send_str
 
 

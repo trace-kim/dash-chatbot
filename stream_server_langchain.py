@@ -14,14 +14,14 @@ BOT_DICT = {
     "gemma2": LangChainBot(model="gemma2"),
     "aya": LangChainBot(model="aya"),
     "phi4": LangChainBot(model="phi4"),
-    "qwen2.5": LangChainBot(model="qwen2.5-coder:32b")
+    "qwen2.5": LangChainBot(model="qwen2.5-coder:14b")
 }
 # ExaOneBot = LangChainBot(model="exaone3.5")
 # DeepSeekBot = LangChainBot(model="deepseek-r1:8b")
 # LlamaBot = LangChainBot(model="llama3.2")
 
 # For testing
-config = {"configurable": {"thread_id": "abc1011"}}
+# config = {"configurable": {"thread_id": "abc1011"}}
 
 # WebSocket manager to track connections by session ID
 class WebSocketManager:
@@ -83,9 +83,13 @@ async def stream_llm_response(websocket: WebSocket, recv: str, rate_limit=0.15):
     try:
         # Load received query and model name
         recv_dict = json.loads(recv)
+        user_id = recv_dict["user_id"]
         query = recv_dict["query"]
         model = recv_dict["model"]
         context = recv_dict["context"]
+
+        print(f"My thread_id: {user_id}")
+        config = {"configurable": {"thread_id": user_id}}
 
         query = query + "  \nContext: " + "  \n\n".join(context)
 
