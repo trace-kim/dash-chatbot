@@ -42,15 +42,14 @@ def MainShell():
             Header(),
             px="1.5625rem"
             ),
-        dmc.AppShellMain([
-            dcc.Location(id='url', refresh=False),
-            
+        dmc.AppShellMain(children=[
             ChatScreen(),
             # dmc.Container(h=500),
         ],
+        id="main-shell",
         h="100vh",
         w="100%"),
-        dmc.AppShellNavbar(ChatNavbar([])),
+        dmc.AppShellNavbar(ChatNavbar([{"title": "Test chat", "id": uuid.uuid4()}])),
     ],
     header={"height": HEADER_HEIGHT},
     id="appshell",
@@ -60,3 +59,13 @@ def MainShell():
         "collapsed": {"mobile": True},
     },
     w="100%")
+
+@callback(
+    Output('main-shell', 'children'),
+    Input("url", "pathname"),
+)
+def router(url):
+    if url == "/":
+        return ChatScreen()
+    else:
+        return html.Div("Testing")

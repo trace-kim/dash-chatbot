@@ -10,6 +10,7 @@ app = Dash(external_stylesheets=dmc.styles.ALL)
 socketio = SocketIO(app.server)
 
 app.layout = dmc.MantineProvider([
+    dcc.Location(id='url', refresh=False),
     MainShell(),
     ],
     theme= {

@@ -1,21 +1,17 @@
+import traceback
 import asyncio
 import time
 import json
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from ollama import AsyncClient
-from utils.langchain_bot import LangChainBot, HumanMessage, AIMessage
+from utils.langchain.langchain_bot import LangChainBot, HumanMessage, AIMessage
+from utils.langchain.agents import *
+from utils.text_processing import pdf_base64_to_document
 
 app = FastAPI()
-BOT_DICT = {
-    "exaone3.5": LangChainBot(model="exaone3.5"),
-    "deepseek-r1": LangChainBot(model="deepseek-r1:8b"),
-    "llama3.2": LangChainBot(model="llama3.2"),
-    "mistral-nemo": LangChainBot(model="mistral-nemo"),
-    "gemma2": LangChainBot(model="gemma2"),
-    "aya": LangChainBot(model="aya"),
-    "phi4": LangChainBot(model="phi4"),
-    "qwen2.5": LangChainBot(model="qwen2.5-coder:14b")
-}
+
+supervisor = SupervisorAgent()
+
 # ExaOneBot = LangChainBot(model="exaone3.5")
 # DeepSeekBot = LangChainBot(model="deepseek-r1:8b")
 # LlamaBot = LangChainBot(model="llama3.2")
@@ -81,61 +77,44 @@ async def send_message(session_id: str, message: str):
 # async def stream_llm_response(websocket: WebSocket, prompt: str, model="llama3.2", rate_limit=0.15):
 async def stream_llm_response(websocket: WebSocket, recv: str, rate_limit=0.15):
     try:
-        # Load received query and model name
-        recv_dict = json.loads(recv)
-        user_id = recv_dict["user_id"]
-        query = recv_dict["query"]
-        model = recv_dict["model"]
-        context = recv_dict["context"]
+        await supervisor.astream(from_user=recv, websocket=websocket, rate_limit=rate_limit)
 
-        print(f"My thread_id: {user_id}")
-        config = {"configurable": {"thread_id": user_id}}
+        # # Load received query and model name
+        # recv_dict = process_user_query(recv)
 
-        query = query + "  \nContext: " + "  \n\n".join(context)
+        # user_id = recv_dict["user_id"]
+        # query = recv_dict["query"]
+        # model = recv_dict["model"]
+        # context = recv_dict["context"]
+        # agent = recv_dict["agent"]
 
-        print(f"Prompt: {query}")
-        if not query.strip():
-            return
-        print("Message received")
+        # print(f"My thread_id: {user_id}")
+        # config = {"configurable": {"thread_id": user_id}}
 
-        input_messages = [HumanMessage(query)]
+        # query = query + "  \nContext: " + "  \n\n".join(context)
 
-        # Async stream from the LLM model
-        LLMBot = BOT_DICT[model]
+        # print(f"Prompt: {query}")
+        # if not query.strip():
+        #     return
+        # print("Message received")
 
-        await LLMBot.astream(
-            message=input_messages,
-            config=config,
-            websocket=websocket,
-            rate_limit=rate_limit
-        )
-        # ts = time.perf_counter()
-        # async for chunk, metadata in LLMBot.app.astream(
-        #     {"messages": input_messages},
-        #     config,
-        #     stream_mode="messages",
-        # ):
-        #     if isinstance(chunk, AIMessage):  # Filter to just model responses
-        #         send_message += chunk.content
-        #         if time.perf_counter() - ts > rate_limit:
-        #             print("Entered rate limit break")
-        #             print(send_message)
-        #             await websocket.send_text(send_message)
-        #             print("Message sent")
-        #             send_message = ""
-        #             ts = time.perf_counter()
+        # input_messages = [HumanMessage(query)]
 
-        # # Ensure any remaining message is sent
-        # if send_message:
-        #     time_left = rate_limit - (time.perf_counter() - ts)
-        #     await asyncio.sleep(time_left)
-        #     print(send_message)
-        #     await websocket.send_text(send_message)
-        #     print("Message sent")
+        # # Async stream from the LLM model
+        # LLMBot = BOT_DICT[model]
+
+        # await LLMBot.astream(
+        #     message=input_messages,
+        #     config=config,
+        #     websocket=websocket,
+        #     rate_limit=rate_limit
+        # )
 
     except Exception as e:
         print(f"Error streaming LLM response: {e}")
-        await websocket.send_text("An error occurred while generating the response.")
+        print(traceback.format_exc())
+        error_response = {"response": "An error occurred while generating the response.", "state": "finished"}
+        await websocket.send_text(json.dumps(error_response))
 
 if __name__ == "__main__":
     import uvicorn

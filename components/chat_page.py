@@ -21,7 +21,7 @@ def _AvatarCreator(username):
         variant="light"
     )
 
-def _ChatCreator(name, chat_id, chat_text):
+def _ChatCreator(name, chat_id, chat_text, AdditionalComponent=html.Div("")):
     id_loader = copy.deepcopy(chat_id)
     id_loader["type"] += "-loader"
 
@@ -69,6 +69,7 @@ def _ChatCreator(name, chat_id, chat_text):
                     id=chat_id,
                     style=markdown_style
                 ),
+                AdditionalComponent
             ])
         ]
     # return dmc.Grid([
@@ -110,7 +111,7 @@ def _PromptUploadedFiles():
     return dmc.Group(
         children=[],
         align="flex-start",
-        id="uploaded-files-stack"
+        id="uploaded-files-group"
     )
 
 def _PromptButtons():
@@ -225,8 +226,8 @@ def _PromptSection():
     style={"backgroundColor": "white"}
     )
 
-def UserChat(username, chat_text, chat_id):
-    return _ChatCreator(username, chat_text=chat_text, chat_id=chat_id)
+def UserChat(username, chat_text, chat_id, AdditionalComponent=html.Div("")):
+    return _ChatCreator(username, chat_text=chat_text, chat_id=chat_id, AdditionalComponent=AdditionalComponent)
 
 def AssistantChat(chat_text, chat_id):
     return _ChatCreator("Assistant", chat_text=chat_text, chat_id=chat_id)
@@ -246,6 +247,7 @@ def ChatScreen():
                 h="100%",
                 maw={"base": "100vw","md": CHAT_MAX_WIDTH},
                 w="100%",
+                id="chat-scroll-area",
                 children=dmc.Paper(
                     dmc.Stack(
                         children=[
@@ -339,9 +341,13 @@ def prompt_submit_pressed(n_clicks, prompt_text, username, id_list, keyboard_eve
     # If enter key is pressed with prompt text, render User/Assistant chat UI
     if (not n_clicks is None) and (not {"type": CHAT_ASSISTANT_ID_PREFIX, "index": n_clicks} in id_list):
         user_text = prompt_text.replace("\n", "  \n")
-        # patch["props"]["children"].append(UserChat(username, user_text, chat_id={"type": CHAT_USER_ID_PREFIX, "index": n_clicks}))
-        # patch["props"]["children"].append(AssistantChat("", chat_id={"type": CHAT_ASSISTANT_ID_PREFIX, "index": n_clicks}))
-        patch.append(UserChat(username, user_text, chat_id={"type": CHAT_USER_ID_PREFIX, "index": n_clicks}))
+        
+        # Create UI for attached files
+        fnames = [data["fname"] for data in uploaded_data]
+        AdditionalComp = dmc.Group([FileBadge(fname, id_num=None) for fname in fnames])
+        # attached_files_comp = dmc.Group(children=uploaded_files_comp)
+
+        patch.append(UserChat(username, user_text, chat_id={"type": CHAT_USER_ID_PREFIX, "index": n_clicks}, AdditionalComponent=AdditionalComp))
         patch.append(AssistantChat("", chat_id={"type": CHAT_ASSISTANT_ID_PREFIX, "index": n_clicks}))
     
     send_str = json.dumps({"user_id": user_id,"query": prompt_text, "model": model, "context": uploaded_data})
@@ -414,12 +420,12 @@ def update_response_timer(n_intervals, interval, time_taken_children):
 
 @callback(
     Output('uploaded-file', 'data'),
-    Output('uploaded-files-stack', 'children'),
+    Output('uploaded-files-group', 'children'),
     Input('file-upload', 'contents'),
     State('uploaded-file', 'data'),
     State('file-upload', 'filename'),
-    State('uploaded-files-stack', 'children'),
-    State({"type": CHAT_ATTACHED_FILE_DELETE_ID_PREFIX, "index": ALL}, 'id'),
+    State('uploaded-files-group', 'children'),
+    State({"type": CHAT_ATTACHED_FILE_DELETE_ID_PREFIX, "fname": ALL, "index": ALL}, 'id'),
     prevent_initial_call=True
 )
 def update_output(new_file_data, uploaded_data_list, new_file_names, uploaded_file_badges, file_id_list):
@@ -428,27 +434,38 @@ def update_output(new_file_data, uploaded_data_list, new_file_names, uploaded_fi
     else:
         curr_file_num = file_id_list[-1]["index"] + 1
 
-    uploaded_data_list += new_file_data
+    # Append uploaded files to data store
+    new_file_dict_list = [{"fname": new_file_names[l], "fdata": fdata} for l, fdata in enumerate(new_file_data)]
+    uploaded_data_list += new_file_dict_list
+
+    # Add file badges for display
     file_badges = [FileBadge(fname, id_num=l+curr_file_num) for l, fname in enumerate(new_file_names)]
     uploaded_file_badges += file_badges
     return uploaded_data_list, uploaded_file_badges
 
 @callback(
-    Output('uploaded-files-stack', 'children'),
-    Input({"type": CHAT_ATTACHED_FILE_DELETE_ID_PREFIX, "index": ALL}, 'n_clicks'),
-    State('uploaded-files-stack', 'children'),
+    Output('uploaded-files-group', 'children'),
+    Output('uploaded-file', 'data'),
+    Input({"type": CHAT_ATTACHED_FILE_DELETE_ID_PREFIX, "fname": ALL, "index": ALL}, 'n_clicks'),
+    State('uploaded-files-group', 'children'),
+    State('uploaded-file', 'data'),
     prevent_initial_call = True,
     allow_duplicate = True,
 )
-def file_delete_button_clicked(n_clicks, badge_list):
+def file_delete_button_clicked(n_clicks, badge_list, uploaded_file_data):
     if all(click is None for click in n_clicks):
-        return badge_list
+        return badge_list, uploaded_file_data
     
+    # Delete file badge
     del_badge_id = copy.deepcopy(ctx.triggered_id)
     del_badge_id["type"] = CHAT_ATTACHED_FILE_BADGE_ID_PREFIX
-    
     badge_list = [badge for badge in badge_list if del_badge_id != badge["props"]["id"]]
-    return badge_list
+
+    # Delete data store
+    del_fname = del_badge_id["fname"]
+    uploaded_file_data = [fdata for fdata in uploaded_file_data if fdata["fname"] != del_fname]
+
+    return badge_list, uploaded_file_data
 
 @callback(
     Output("prompt-text", "value"),
