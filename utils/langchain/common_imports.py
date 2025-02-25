@@ -1,3 +1,4 @@
+import os
 from langchain_ollama import ChatOllama
 
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, trim_messages, BaseMessage
@@ -17,9 +18,12 @@ from typing_extensions import Annotated, TypedDict
 from langfuse.callback import CallbackHandler
 
 from utils.langchain.prompts import *
+from dotenv import load_dotenv
+
+load_dotenv()
 
 langfuse_handler = CallbackHandler(
-  secret_key="sk-lf-00e471ca-2111-4262-a488-8f601f293c6b",
-  public_key="pk-lf-3898b1bf-11d3-4ef9-8dee-4d9ca2367b50",
+  secret_key=os.environ.get("LANGFUSE_SECRET_KEY"),
+  public_key=os.environ.get("LANGFUSE_PUBLIC_KEY"),
   host="http://localhost:3000"
 )
